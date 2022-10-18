@@ -1,0 +1,55 @@
+#R.jr - python para mercado financeiro
+#necessario criar uma pasta para armazenar os arquivos da CVM
+#importar bibliotecas utilizadas
+
+import pandas as pd
+import requests 
+import os 
+import zipfile
+
+diretorio_atual = os.getcwd()
+os.chdir(f"{diretorio_atual}/dados_cvm")
+
+anos = range(2010, 2023)
+
+url_CVM = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/"
+
+for ano in anos:
+    download_dados = requests.get(url_CVM + f"dfp_cia_aberta_{ano}.zip")
+    
+    open(f"dfp_cia_aberta_{ano}.zip","wb").write(download_dados.content)
+
+lista_demonstracao_2010_2022 = []
+
+diretorio_atual = os.getcwd()
+
+for arquivo in os.listdir(diretorio_atual):
+    
+    if arquivo == ".ipynb_checkpoints":
+        
+        pass
+    
+    else:
+        
+        arquivo_zip = zipfile.ZipFile(arquivo)
+        
+        for planilha in arquivo_zip.namelist():
+            
+            demonstracao = pd.read_csv(arquivo_zip.open(planilha), sep = ";", encoding = 'ISO-8859-1', dtype = {"ORDEM_EXERC":"category"})
+            
+            lista_demonstracao_2010_2022.append(demonstracao)
+
+base_dados = pd.concat(lista_demonstracao_2010_2022)
+
+
+base_dados[['con_ind','tipo_dem']] = base_dados['GRUPO_DFP'].str.split("-", expand = True)
+base_dados['con_ind'] = base_dados['con_ind'].str.strip()
+base_dados['tipo_dem'] = base_dados['tipo_dem'].str.strip()
+
+base_dados = base_dados[base_dados['ORDEM_EXERC'] !="PENÚLTIMO"]
+
+lista_dem = base_dados['tipo_dem'].unique()
+
+lista_empresas = base_dados['DENOM_CIA'].unique()
+
+weg_dre = base_dados[(base_dados["DENOM_CIA"] == "WEG S.A.") & (base_dados["tipo_dem"] == "Demonstracao do Resultado") & (base_dados["DS_CONTA"] == "Receita de venda de bens e/ou Servicos") & (base_dados["con_ind"] == "DF consolidado")]
